@@ -95,6 +95,7 @@ class DAEMONNeighborSampler(BaseSampler):
             [], dtype=torch.long
         )  # samplingされたエッジのindexを格納するtensor
 
+        # 深さ優先探索で近傍nodeをサンプリングする
         seed_queue = deque(seed)  # samplingするseedを格納するqueue
         layer_queue = deque([0] * seed.numel())  # seedの層を格納するqueue
         remained_edge_index = edge_index
@@ -170,7 +171,7 @@ class DAEMONNeighborSampler(BaseSampler):
                 dst_pos_index,
                 dst_neg_index,
                 seed_time,
-            ),  # LinkLoaderのfilter_fnで使用するための情報。この順番である必要がある
+            ),  # NOTE: LinkLoaderのfilter_fnで使用するための情報。この順番である必要がある
         )
 
 
