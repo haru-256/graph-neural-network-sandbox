@@ -316,3 +316,21 @@ class TestDAEMONNeighborSampler:
         _, actual_src_index, actual_dst_pos_index, _, _ = out.metadata
         assert torch.equal(out.node[actual_src_index], src)
         assert torch.equal(out.node[actual_dst_pos_index], dst_pos)
+
+        # num_src = 1
+        # num_neg_sample_size = 1
+        # num_neighbors = -1
+        src = torch.tensor([0])
+        dst_pos = torch.tensor([4])
+        inputs = EdgeSamplerInput(input_id=None, row=src, col=dst_pos)
+        sampler = DAEMONNeighborSampler(data, num_neighbors=[-1, -1], seed=1026)
+        neg_sampling = NegativeSampling(mode="triplet", amount=1)
+        out = sampler.sample_from_edges(inputs, neg_sampling)
+        exp_node_range = set(x.flatten().tolist())
+        assert set(out.node.tolist()) <= exp_node_range
+        actual_edge_index = torch.vstack([out.row, out.col])
+        actual_e_id = out.edge
+        assert torch.equal(out.node[actual_edge_index], edge_index[:, actual_e_id])
+        _, actual_src_index, actual_dst_pos_index, _, _ = out.metadata
+        assert torch.equal(out.node[actual_src_index], src)
+        assert torch.equal(out.node[actual_dst_pos_index], dst_pos)

@@ -266,9 +266,12 @@ def sample_one_hop_neighbors(
     target_edge_attr = edge_attr[mask] if edge_attr is not None else None
     # 2. seedがsrcとなるedgeに限定せずedgeをサンプリングする
     # TODO: 重み付きsamplingの実装
-    indices = torch.randperm(target_edge_index.size(1), generator=generator)[
-        :num_neighbor
-    ]
+    if num_neighbor == -1:
+        indices = torch.arange(target_edge_index.size(1))
+    else:
+        indices = torch.randperm(target_edge_index.size(1), generator=generator)[
+            :num_neighbor
+        ]
     sampled_edge_index = target_edge_index[:, indices]
     sampled_edge_attr = (
         target_edge_attr[indices] if target_edge_attr is not None else None
