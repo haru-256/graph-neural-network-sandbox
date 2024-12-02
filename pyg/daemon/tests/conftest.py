@@ -11,7 +11,7 @@ def data():
     edge_index = torch.tensor(
         [[0, 4], [0, 5], [1, 0], [2, 0], [3, 0], [1, 6]]
     ).T.contiguous()
-    edge_index_type = torch.tensor([0, 1, 0, 1, 0])
+    edge_index_type = torch.tensor([0, 1, 0, 1, 0, 0])
     edge_label_index = torch.tensor([[0, 4], [1, 6]]).T.contiguous()
     return Data(
         x=x,
