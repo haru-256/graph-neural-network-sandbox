@@ -1,4 +1,3 @@
-import pytest
 import torch
 from torch_geometric.data import Data
 from torch_geometric.sampler import EdgeSamplerInput, NegativeSampling
@@ -211,18 +210,6 @@ def test_sample_one_hop():
     assert torch.equal(actual_remained_edge_attr, exp_remained_edge_attr)
 
 
-@pytest.fixture()
-def data():
-    # graph follows the below image.
-    # https://github.com/pyg-team/pytorch_geometric/discussions/9816#discussion-7583341
-    x = torch.tensor([0, 1, 2, 3, 4, 5, 6]).reshape(-1, 1)
-    edge_index = torch.tensor(
-        [[0, 4], [0, 5], [1, 0], [2, 0], [3, 0], [1, 6]]
-    ).T.contiguous()
-    edge_index_type = torch.tensor([0, 1, 0, 1, 0])
-    return Data(x=x, edge_index=edge_index, edge_index_type=edge_index_type)
-
-
 class TestDAEMONNeighborSampler:
     def test_sample(self, data: Data):
         x = data.x
@@ -241,7 +228,9 @@ class TestDAEMONNeighborSampler:
         actual_edge_index = torch.vstack([out.row, out.col])
         actual_e_id = out.edge
         assert torch.equal(out.node[actual_edge_index], edge_index[:, actual_e_id])
-        actual_src_index, actual_dst_pos_index, actual_dst_neg_index = out.metadata
+        _, actual_src_index, actual_dst_pos_index, actual_dst_neg_index, _ = (
+            out.metadata
+        )
         assert torch.equal(out.node[actual_src_index], src)
         assert torch.equal(out.node[actual_dst_pos_index], dst_pos)
         assert torch.equal(out.node[actual_dst_neg_index], dst_neg)
@@ -258,7 +247,9 @@ class TestDAEMONNeighborSampler:
         actual_edge_index = torch.vstack([out.row, out.col])
         actual_e_id = out.edge
         assert torch.equal(out.node[actual_edge_index], edge_index[:, actual_e_id])
-        actual_src_index, actual_dst_pos_index, actual_dst_neg_index = out.metadata
+        _, actual_src_index, actual_dst_pos_index, actual_dst_neg_index, _ = (
+            out.metadata
+        )
         assert torch.equal(out.node[actual_src_index], src)
         assert torch.equal(out.node[actual_dst_pos_index], dst_pos)
         assert torch.equal(out.node[actual_dst_neg_index], dst_neg)
@@ -276,7 +267,9 @@ class TestDAEMONNeighborSampler:
         actual_edge_index = torch.vstack([out.row, out.col])
         actual_e_id = out.edge
         assert torch.equal(out.node[actual_edge_index], edge_index[:, actual_e_id])
-        actual_src_index, actual_dst_pos_index, actual_dst_neg_index = out.metadata
+        _, actual_src_index, actual_dst_pos_index, actual_dst_neg_index, _ = (
+            out.metadata
+        )
         assert torch.equal(out.node[actual_src_index], src)
         assert torch.equal(out.node[actual_dst_pos_index], dst_pos)
         assert torch.equal(out.node[actual_dst_neg_index], dst_neg)
@@ -295,7 +288,9 @@ class TestDAEMONNeighborSampler:
         actual_edge_index = torch.vstack([out.row, out.col])
         actual_e_id = out.edge
         assert torch.equal(out.node[actual_edge_index], edge_index[:, actual_e_id])
-        actual_src_index, actual_dst_pos_index, actual_dst_neg_index = out.metadata
+        _, actual_src_index, actual_dst_pos_index, actual_dst_neg_index, _ = (
+            out.metadata
+        )
         assert torch.equal(out.node[actual_src_index], src)
         assert torch.equal(out.node[actual_dst_pos_index], dst_pos)
         assert torch.equal(out.node[actual_dst_neg_index], dst_neg)
@@ -318,6 +313,6 @@ class TestDAEMONNeighborSampler:
         actual_edge_index = torch.vstack([out.row, out.col])
         actual_e_id = out.edge
         assert torch.equal(out.node[actual_edge_index], edge_index[:, actual_e_id])
-        actual_src_index, actual_dst_pos_index, _ = out.metadata
+        _, actual_src_index, actual_dst_pos_index, _, _ = out.metadata
         assert torch.equal(out.node[actual_src_index], src)
         assert torch.equal(out.node[actual_dst_pos_index], dst_pos)

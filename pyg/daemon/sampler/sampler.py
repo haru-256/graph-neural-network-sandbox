@@ -77,11 +77,8 @@ class DAEMONNeighborSampler(BaseSampler):
         assert src.size() == dst_pos.size()
         assert dst_neg.ndim == 2 and dst_neg.size(0) == src.size(0)
 
-        seed = torch.cat([src, dst_pos, dst_neg.flatten()], dim=0)
+        seed = torch.cat([src, dst_pos, dst_neg.flatten()], dim=0).unique()
         assert seed.ndim == 1, f"Seed tensor must be one-dimensional: {seed.size()=}"
-        assert (
-            seed.numel() == seed.unique().numel()
-        ), f"Seeds must be unique. {seed.unique(return_counts=True)=}"
 
         edge_index = self.data.edge_index
         edge_index_type = self.data.edge_index_type
@@ -156,6 +153,8 @@ class DAEMONNeighborSampler(BaseSampler):
         src_index, dst_pos_index, dst_neg_index = find_index(
             node=node, src=src, dst_pos=dst_pos, dst_neg=dst_neg
         )
+        input_id = None
+        seed_time = None
 
         return SamplerOutput(
             node=node,  # n_id相当, originalのnode_indexのindex
@@ -165,7 +164,13 @@ class DAEMONNeighborSampler(BaseSampler):
             batch=None,
             num_sampled_nodes=None,
             num_sampled_edges=None,
-            metadata=(src_index, dst_pos_index, dst_neg_index),
+            metadata=(
+                input_id,
+                src_index,
+                dst_pos_index,
+                dst_neg_index,
+                seed_time,
+            ),  # LinkLoaderのfilter_fnで使用するための情報。この順番である必要がある
         )
 
 
