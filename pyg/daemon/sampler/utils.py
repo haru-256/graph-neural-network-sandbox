@@ -78,7 +78,7 @@ def remove_edges(
         return remaining_edge_index
 
 
-def check_is_exist_edge(
+def check_has_edge(
     edge_index: torch.Tensor, edges_to_check: torch.Tensor
 ) -> torch.Tensor:
     """Check if `edges_to_check` is in edge_index.

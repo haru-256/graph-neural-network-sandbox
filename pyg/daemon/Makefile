@@ -11,11 +11,14 @@ format: # format python file by ruff
 lint: # lint python file by flake8 and mypy
 	ruff check .
 
-lock: pyproject.toml # lock Pipfile
+lock: pyproject.toml # lock uv
 	uv lock
 
-install: uv.lock # install package by pipenv and pip
-	uv sync
+install: uv.lock # install package by uv
+	uv sync --all-groups
+
+test: # run test
+	pytest -v -s tests/
 
 help: # Show help for each of the Makefile recipes.
 	@grep -E '^[a-zA-Z0-9 -]+:.*#'  Makefile | sort | while read -r l; do printf "\033[1;32m$$(echo $$l | cut -f 1 -d':')\033[00m:$$(echo $$l | cut -f 2- -d'#')\n"; done

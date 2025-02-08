@@ -19,12 +19,12 @@ def test_approx_neg_sample():
     expected_size = torch.Size([num_pos])
     expected_range = set(range(num_nodes))
     actual = approx_neg_sample(num_pos, neg_sampling, num_nodes)
-    assert (
-        actual.size() == expected_size
-    ), f"The shape of the output is incorrect. {actual.size()}"
-    assert (
-        set(actual.tolist()) <= expected_range
-    ), f"The output contains an invalid node id. {actual}"
+    assert actual.size() == expected_size, (
+        f"The shape of the output is incorrect. {actual.size()}"
+    )
+    assert set(actual.tolist()) <= expected_range, (
+        f"The output contains an invalid node id. {actual}"
+    )
 
     # negative sample: 2
     num_pos = 5
@@ -34,12 +34,12 @@ def test_approx_neg_sample():
     expected_size = torch.Size([num_pos * num_neg])
     expected_range = set(range(num_nodes))
     actual = approx_neg_sample(num_pos, neg_sampling, num_nodes)
-    assert (
-        actual.size() == expected_size
-    ), f"The shape of the output is incorrect. {actual.size()}"
-    assert (
-        set(actual.tolist()) <= expected_range
-    ), f"The output contains an invalid node id. {actual}"
+    assert actual.size() == expected_size, (
+        f"The shape of the output is incorrect. {actual.size()}"
+    )
+    assert set(actual.tolist()) <= expected_range, (
+        f"The output contains an invalid node id. {actual}"
+    )
 
 
 def test_find_index():
@@ -54,15 +54,15 @@ def test_find_index():
     actual_src_index, actual_dst_pos_index, actual_dst_neg_index = find_index(
         node, src, dst_pos, dst_neg
     )
-    assert torch.equal(
-        actual_src_index, exp_src_index
-    ), f"Source index is incorrect. {actual_src_index}"
-    assert torch.equal(
-        actual_dst_pos_index, exp_dst_pos_index
-    ), f"Positive destination index is incorrect. {actual_dst_pos_index}"
-    assert torch.equal(
-        actual_dst_neg_index, exp_dst_neg_index
-    ), f"Negative destination index is incorrect. {actual_dst_neg_index}"
+    assert torch.equal(actual_src_index, exp_src_index), (
+        f"Source index is incorrect. {actual_src_index}"
+    )
+    assert torch.equal(actual_dst_pos_index, exp_dst_pos_index), (
+        f"Positive destination index is incorrect. {actual_dst_pos_index}"
+    )
+    assert torch.equal(actual_dst_neg_index, exp_dst_neg_index), (
+        f"Negative destination index is incorrect. {actual_dst_neg_index}"
+    )
 
     # neg sample size = 2
     node = torch.tensor([1, 2, 3, 4, 5, 10, 11, 12])
@@ -75,15 +75,15 @@ def test_find_index():
     actual_src_index, actual_dst_pos_index, actual_dst_neg_index = find_index(
         node, src, dst_pos, dst_neg
     )
-    assert torch.equal(
-        actual_src_index, exp_src_index
-    ), f"Source index is incorrect. {actual_src_index}"
-    assert torch.equal(
-        actual_dst_pos_index, exp_dst_pos_index
-    ), f"Positive destination index is incorrect. {actual_dst_pos_index}"
-    assert torch.equal(
-        actual_dst_neg_index, exp_dst_neg_index
-    ), f"Negative destination index is incorrect. {actual_dst_neg_index}"
+    assert torch.equal(actual_src_index, exp_src_index), (
+        f"Source index is incorrect. {actual_src_index}"
+    )
+    assert torch.equal(actual_dst_pos_index, exp_dst_pos_index), (
+        f"Positive destination index is incorrect. {actual_dst_pos_index}"
+    )
+    assert torch.equal(actual_dst_neg_index, exp_dst_neg_index), (
+        f"Negative destination index is incorrect. {actual_dst_neg_index}"
+    )
 
 
 def test_sample_one_hop():

@@ -83,9 +83,9 @@ class DAEMONNeighborSampler(BaseSampler):
         edge_index = self.data.edge_index
         edge_index_type = self.data.edge_index_type
         num_neighbors = self.num_neighbors.get_values()
-        assert (
-            edge_index is not None and edge_index_type is not None
-        ), f"{edge_index=}, {edge_index_type=}"
+        assert edge_index is not None and edge_index_type is not None, (
+            f"{edge_index=}, {edge_index_type=}"
+        )
 
         sampled_nodes = seed  # samplingされたノードを格納するtensor
         sampled_edge_indices = torch.tensor([], dtype=torch.long).reshape(
