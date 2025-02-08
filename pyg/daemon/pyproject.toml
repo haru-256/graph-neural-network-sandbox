@@ -1,40 +1,57 @@
 [project]
-name = "pyg"
+name = "daemon"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-  "torch==2.5.1",
-  # "pyg_lib",
-  # "torch_scatter",
-  # "torch_sparse",
-  # "torch_cluster",
-  # "torch_spline_conv",
+dependencies = ["numpy~=2.2.2", "polars~=1.21.0"]
+
+[project.optional-dependencies]
+cpu = ["torch==2.4.1", "torch_geometric==2.6.1"]
+gpu = [
+  "torch==2.4.1",
   "torch_geometric==2.6.1",
-  "numpy~=2.2.2",
-  "polars~=1.21.0",
+  "pyg_lib==0.4.0",
+  "torch_cluster==1.6.3",
+  "torch_scatter==2.1.2",
+  "torch_sparse==0.6.18",
+  "torch_spline_conv==1.2.2",
 ]
+
+[dependency-groups]
+dev = ["notebook~=7.3.2", "pytest~=8.3.4", "mypy~=1.15.0", "ipywidgets>=8.1.5"]
+lint = ["ruff~=0.9.5"]
 
 [tool.uv]
-dev-dependencies = [
-  "notebook~=7.3.2",
-  "pytest~=8.3.4",
-  "mypy~=1.14.1",
-  "ipywidgets>=8.1.5",
-  "ruff~=0.9.3",
-]
+conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
+find-links = ["https://data.pyg.org/whl/torch-2.4.1+cu121.html"]
 
 [tool.uv.sources]
-# from https://data.pyg.org/whl/torch-2.4.0+cpu.html
-pyg_lib = [
-  { url = "https://data.pyg.org/whl/torch-2.4.0%2Bcpu/pyg_lib-0.4.0%2Bpt24-cp310-cp310-macosx_14_0_universal2.whl", marker = "sys_platform == 'macOS'" },
-  { url = "https://data.pyg.org/whl/torch-2.4.0%2Bcpu/pyg_lib-0.4.0%2Bpt24cpu-cp310-cp310-linux_x86_64.whl", marker = "sys_platform != 'macOS'" },
+torch = [
+  { index = "pytorch-cpu-mac", extra = "cpu", marker = "platform_system == 'macOS'" },
+  { index = "pytorch-cpu", extra = "cpu", marker = "platform_system != 'macOS'" },
+  { index = "pytorch-gpu", extra = "gpu" },
 ]
-torch_cluster = { url = "https://data.pyg.org/whl/torch-2.4.0%2Bcpu/torch_cluster-1.6.3-cp310-cp310-macosx_10_9_universal2.whl", marker = "sys_platform == 'macOS'" }
-torch_scatter = { url = "https://data.pyg.org/whl/torch-2.4.0%2Bcpu/torch_scatter-2.1.2-cp310-cp310-macosx_10_9_universal2.whl", marker = "sys_platform == 'macOS'" }
-torch_sparse = { url = "https://data.pyg.org/whl/torch-2.4.0%2Bcpu/torch_sparse-0.6.18-cp310-cp310-macosx_11_0_universal2.whl", marker = "sys_platform == 'macOS'" }
-torch_spline_conv = { url = "https://data.pyg.org/whl/torch-2.4.0%2Bcpu/torch_spline_conv-1.2.2-cp310-cp310-macosx_10_9_universal2.whl", marker = "sys_platform == 'macOS'" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu-mac"
+url = "https://pypi.python.org/simple"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[[tool.uv.index]]
+name = "pyg-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
 
 [tool.ruff]
 target-version = "py311"

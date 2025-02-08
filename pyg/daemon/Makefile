@@ -1,6 +1,7 @@
 .PHONY: format lint all lock
 
 .DEFAULT_GOAL = help
+HAS_CUDA := $(shell command -v nvcc 2> /dev/null && echo 1 || echo 0)
 
 all: format lint lock # execute all target
 
@@ -15,7 +16,13 @@ lock: pyproject.toml # lock uv
 	uv lock
 
 install: uv.lock # install package by uv
-	uv sync --all-groups
+	@if [ $(HAS_CUDA) -eq 1 ]; then \
+		echo "=== Install with GPU support ==="; \
+		uv sync --all-groups --extra=gpu; \
+	else \
+		echo "=== Install with CPU support ==="; \
+		uv sync --all-groups --extra=cpu; \
+	fi
 
 test: # run test
 	pytest -v -s tests/
