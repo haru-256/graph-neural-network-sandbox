@@ -3,6 +3,8 @@ from typing import Optional, overload
 import torch
 from torch_geometric.utils import coalesce
 
+from .cython.cython_fn import remove_edges as _remove_edges_v2
+
 
 @overload
 def remove_edges(
@@ -76,6 +78,31 @@ def remove_edges(
         mask = all_edge_attrs.squeeze() == 0
         remaining_edge_index = all_edge_index[:, mask]
         return remaining_edge_index
+
+
+def remove_edges_v2(
+    edge_index: torch.Tensor,
+    removed_edge_index: torch.Tensor,
+    edge_attr: Optional[torch.Tensor] = None,
+):
+    """Remove edges from edge_index.
+
+    Args:
+        edge_index: edge index, shape=(2, n) n: number of edges
+        edge_attr: edge attributes, shape=(n, d) d: number of edge attributes
+        removed_edge_index: target edge index to remove, shape=(2, m) m: number of edges to remove, default=None
+    Returns:
+        remaining_edge_index: edge index after removing edges
+        remaining_edge_attrs: edge attributes after removing edges
+    """
+    if edge_attr is None:
+        raise NotImplementedError("edge_attr is required")
+    edge_index, edge_attr = _remove_edges_v2(
+        edge_index=edge_index.numpy(),
+        edge_attr=edge_attr.numpy(),
+        removed_edge_index=removed_edge_index.numpy(),
+    )
+    return torch.tensor(edge_index), torch.tensor(edge_attr)
 
 
 def check_has_edge(

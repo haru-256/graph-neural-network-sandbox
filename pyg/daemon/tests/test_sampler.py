@@ -6,6 +6,7 @@ from sampler.sampler import (
     DAEMONNeighborSampler,
     approx_neg_sample,
     find_index,
+    find_index_v2,
     sample_one_hop_neighbors,
 )
 
@@ -73,6 +74,50 @@ def test_find_index():
     exp_dst_pos_index = torch.tensor([2, 3])
     exp_dst_neg_index = torch.tensor([[5, 6], [6, 7]])
     actual_src_index, actual_dst_pos_index, actual_dst_neg_index = find_index(
+        node, src, dst_pos, dst_neg
+    )
+    assert torch.equal(actual_src_index, exp_src_index), (
+        f"Source index is incorrect. {actual_src_index}"
+    )
+    assert torch.equal(actual_dst_pos_index, exp_dst_pos_index), (
+        f"Positive destination index is incorrect. {actual_dst_pos_index}"
+    )
+    assert torch.equal(actual_dst_neg_index, exp_dst_neg_index), (
+        f"Negative destination index is incorrect. {actual_dst_neg_index}"
+    )
+
+
+def test_find_index_v2():
+    # neg sample size = 1
+    node = torch.tensor([1, 2, 3, 4, 5, 10, 11, 12])
+    src = torch.tensor([1, 2])
+    dst_pos = torch.tensor([3, 4])
+    dst_neg = torch.tensor([[10], [11]])
+    exp_src_index = torch.tensor([0, 1])
+    exp_dst_pos_index = torch.tensor([2, 3])
+    exp_dst_neg_index = torch.tensor([[5], [6]])
+    actual_src_index, actual_dst_pos_index, actual_dst_neg_index = find_index_v2(
+        node, src, dst_pos, dst_neg
+    )
+    assert torch.equal(actual_src_index, exp_src_index), (
+        f"Source index is incorrect. {actual_src_index}"
+    )
+    assert torch.equal(actual_dst_pos_index, exp_dst_pos_index), (
+        f"Positive destination index is incorrect. {actual_dst_pos_index}"
+    )
+    assert torch.equal(actual_dst_neg_index, exp_dst_neg_index), (
+        f"Negative destination index is incorrect. {actual_dst_neg_index}"
+    )
+
+    # neg sample size = 2
+    node = torch.tensor([1, 2, 3, 4, 5, 10, 11, 12])
+    src = torch.tensor([1, 2])
+    dst_pos = torch.tensor([3, 4])
+    dst_neg = torch.tensor([[10, 11], [11, 12]])
+    exp_src_index = torch.tensor([0, 1])
+    exp_dst_pos_index = torch.tensor([2, 3])
+    exp_dst_neg_index = torch.tensor([[5, 6], [6, 7]])
+    actual_src_index, actual_dst_pos_index, actual_dst_neg_index = find_index_v2(
         node, src, dst_pos, dst_neg
     )
     assert torch.equal(actual_src_index, exp_src_index), (

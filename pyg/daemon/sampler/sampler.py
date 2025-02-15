@@ -14,7 +14,10 @@ from torch_geometric.sampler import (
 )
 from torch_geometric.utils import mask_to_index
 
-from .utils import remove_edges
+from .cython.cython_fn import find_index as _find_index_v2
+from .utils import remove_edges_v2 as remove_edges
+
+# from .utils import remove_edges
 
 
 class DAEMONNeighborSampler(BaseSampler):
@@ -151,7 +154,10 @@ class DAEMONNeighborSampler(BaseSampler):
         col = sampled_edge_index[1]
         edge = sampled_edge_index_ptrs.long()
         # src, dst_pos, dst_negのindexを取得する
-        src_index, dst_pos_index, dst_neg_index = find_index(
+        # src_index, dst_pos_index, dst_neg_index = find_index(
+        #     node=node, src=src, dst_pos=dst_pos, dst_neg=dst_neg
+        # )
+        src_index, dst_pos_index, dst_neg_index = find_index_v2(
             node=node, src=src, dst_pos=dst_pos, dst_neg=dst_neg
         )
         input_id = None
@@ -215,6 +221,32 @@ def find_index(
     dst_neg_index = torch.vstack(dst_neg_index_)
 
     return src_index, dst_pos_index, dst_neg_index
+
+
+def find_index_v2(
+    node: Tensor, src: Tensor, dst_pos: Tensor, dst_neg: Tensor
+) -> tuple[Tensor, Tensor, Tensor]:
+    """
+    Find the index of the node w,r.t src, dst_pos and dst_neg.
+    Args:
+        node: all nodes. shape: (num_nodes, )
+        src: source nodes. shape: (num_src, )
+        dst_pos: positive destination nodes. shape: (num_src, )
+        dst_neg: negative destination nodes. shape: (num_src, num_neg)
+    Returns:
+        index: index of src, dst_pos, dst_neg. each shape: (num_src, ), (num_pos, ), (num_src, num_neg)
+    """
+    assert src.size() == dst_pos.size()
+    assert dst_neg.ndim == 2 and dst_neg.size(0) == src.size(0)
+
+    src_index, dst_pos_index, dst_neg_index = _find_index_v2(
+        node.numpy(), src.numpy(), dst_pos.numpy(), dst_neg.numpy()
+    )
+    return (
+        torch.tensor(src_index),
+        torch.tensor(dst_pos_index),
+        torch.tensor(dst_neg_index),
+    )
 
 
 @overload

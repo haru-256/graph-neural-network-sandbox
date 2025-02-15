@@ -70,5 +70,13 @@ extend-include = ["*.ipynb"]
 extend-select = ["I"]
 
 [[tool.mypy.overrides]]
-module = ['torch_geometric', 'torch_geometric.*', '.*']
+module = [
+  'torch_geometric',
+  'torch_geometric.*',
+  '.*',
+  "Cython",
+  "Cython.*",
+  "setuptools",
+  "sampler.cython.*",
+]
 ignore_missing_imports = true

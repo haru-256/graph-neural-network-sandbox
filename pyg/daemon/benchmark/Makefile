@@ -7,3 +7,4 @@ profile:
 show-results:
 	@echo "Showing results..."
 	uv run python -m line_profiler $(PROFILE_FILE)
+
