@@ -3,6 +3,7 @@ from typing import Optional, overload
 import torch
 from torch_geometric.utils import coalesce
 
+from .cython.cython_fn import get_connected_edges as _get_connected_edges_v2
 from .cython.cython_fn import remove_edges as _remove_edges_v2
 
 
@@ -123,3 +124,55 @@ def check_has_edge(
         .any(dim=-1)
     )
     return edge_exists
+
+
+def get_connected_edges(
+    seed: torch.Tensor,
+    edge_index: torch.Tensor,
+    edge_attr: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    get connected edges from seed node.
+
+    Args:
+        seed: seed node. shape: (1, )
+        edge_index: edge index. shape: (2, num_edges)
+        edge_attr: edge attributes. shape: (num_edges, num_edge_attrs)
+
+    Returns:
+        connected_edges: connected edges. shape: (2, num_connected_edges)
+        connected_edge_attrs: connected edge attributes. shape: (num_connected_edges, num_edge_attrs)
+    """
+    mask = (edge_index == seed).any(dim=0)  # shape: (num_edges, )
+    target_edge_index = edge_index[:, mask]
+    target_edge_attr = edge_attr[mask] if edge_attr is not None else None
+    return target_edge_index, target_edge_attr
+
+
+def get_connected_edges_v2(
+    seed: int,
+    edge_index: torch.Tensor,
+    edge_attr: Optional[torch.Tensor],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    get connected edges from seed node.
+
+    Args:
+        seed: seed node.
+        edge_index: edge index. shape: (2, num_edges)
+        edge_attr: edge attributes. shape: (num_edges, num_edge_attrs)
+
+    Returns:
+        connected_edges: connected edges. shape: (2, num_connected_edges)
+        connected_edge_attrs: connected edge attributes. shape: (num_connected_edges, num_edge_attrs)
+    """
+    if edge_attr is None:
+        raise NotImplementedError("edge_attr is required")
+    connected_edge_index, connected_edge_attr = _get_connected_edges_v2(
+        seed=seed,
+        edge_index=edge_index.numpy(),
+        edge_attr=edge_attr.numpy(),
+    )
+    return torch.tensor(connected_edge_index, dtype=edge_index.dtype), torch.tensor(
+        connected_edge_attr, dtype=edge_attr.dtype
+    )

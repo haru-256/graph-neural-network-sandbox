@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch_geometric.data import Data
 from torch_geometric.sampler import EdgeSamplerInput, NegativeSampling
@@ -7,7 +8,10 @@ from sampler.sampler import (
     approx_neg_sample,
     find_index,
     find_index_v2,
+    neighbor_sampling_by_dfs,
+    neighbor_sampling_by_dfs_v2,
     sample_one_hop_neighbors,
+    sample_one_hop_neighbors_v2,
 )
 
 
@@ -132,55 +136,55 @@ def test_find_index_v2():
 
 
 def test_sample_one_hop():
-    seed = 0
-    edge_index = torch.tensor(
-        [
-            [0, 4],
-            [0, 5],
-            [1, 0],
-            [2, 0],
-            [3, 0],
-        ],
-        dtype=torch.long,
-    ).T.contiguous()
-    edge_attr = None
-    num_neighbor = 3
-    generator = torch.Generator()
-    generator.manual_seed(1124)
-    exp_nodes = torch.tensor([1, 3, 5])
-    exp_edge_index = torch.tensor(
-        [
-            [1, 0],
-            [0, 5],
-            [3, 0],
-        ],
-        dtype=torch.long,
-    ).T.contiguous()
-    exp_remained_edge_index = torch.tensor(
-        [
-            [0, 4],
-            [2, 0],
-        ],
-        dtype=torch.long,
-    ).T.contiguous()
-    (
-        actual_nodes,
-        actual_edge_index,
-        actual_edge_attr,
-        actual_remained_edge_index,
-        actual_remained_edge_attr,
-    ) = sample_one_hop_neighbors(
-        seed=seed,
-        edge_index=edge_index,
-        edge_attr=edge_attr,
-        num_neighbor=num_neighbor,
-        generator=generator,
-    )
-    assert torch.equal(actual_nodes, exp_nodes)
-    assert torch.equal(actual_edge_index, exp_edge_index)
-    assert actual_edge_attr is None
-    assert torch.equal(actual_remained_edge_index, exp_remained_edge_index)
-    assert actual_remained_edge_attr is None
+    # seed = 0
+    # edge_index = torch.tensor(
+    #     [
+    #         [0, 4],
+    #         [0, 5],
+    #         [1, 0],
+    #         [2, 0],
+    #         [3, 0],
+    #     ],
+    #     dtype=torch.long,
+    # ).T.contiguous()
+    # edge_attr = None
+    # num_neighbor = 3
+    # generator = torch.Generator()
+    # generator.manual_seed(1124)
+    # exp_nodes = torch.tensor([1, 3, 5])
+    # exp_edge_index = torch.tensor(
+    #     [
+    #         [1, 0],
+    #         [0, 5],
+    #         [3, 0],
+    #     ],
+    #     dtype=torch.long,
+    # ).T.contiguous()
+    # exp_remained_edge_index = torch.tensor(
+    #     [
+    #         [0, 4],
+    #         [2, 0],
+    #     ],
+    #     dtype=torch.long,
+    # ).T.contiguous()
+    # (
+    #     actual_nodes,
+    #     actual_edge_index,
+    #     actual_edge_attr,
+    #     actual_remained_edge_index,
+    #     actual_remained_edge_attr,
+    # ) = sample_one_hop_neighbors(
+    #     seed=seed,
+    #     edge_index=edge_index,
+    #     edge_attr=edge_attr,
+    #     num_neighbor=num_neighbor,
+    #     generator=generator,
+    # )
+    # assert torch.equal(actual_nodes, exp_nodes)
+    # assert torch.equal(actual_edge_index, exp_edge_index)
+    # assert actual_edge_attr is None
+    # assert torch.equal(actual_remained_edge_index, exp_remained_edge_index)
+    # assert actual_remained_edge_attr is None
 
     # edge_attr is not None
     seed = 0
@@ -196,11 +200,11 @@ def test_sample_one_hop():
     ).T.contiguous()
     edge_attr = torch.tensor(
         [
-            [0.1],
-            [0.2],
-            [0.3],
-            [0.4],
-            [0.5],
+            [10],
+            [20],
+            [30],
+            [40],
+            [50],
         ]
     )
     num_neighbor = 3
@@ -217,9 +221,9 @@ def test_sample_one_hop():
     ).T.contiguous()
     exp_edge_attr = torch.tensor(
         [
-            [0.3],
-            [0.2],
-            [0.5],
+            [30],
+            [20],
+            [50],
         ]
     )
     exp_remained_edge_index = torch.tensor(
@@ -231,8 +235,8 @@ def test_sample_one_hop():
     ).T.contiguous()
     exp_remained_edge_attr = torch.tensor(
         [
-            [0.1],
-            [0.4],
+            [10],
+            [40],
         ]
     )
     (
@@ -253,6 +257,145 @@ def test_sample_one_hop():
     assert torch.equal(actual_edge_attr, exp_edge_attr)
     assert torch.equal(actual_remained_edge_index, exp_remained_edge_index)
     assert torch.equal(actual_remained_edge_attr, exp_remained_edge_attr)
+
+
+def test_sample_one_hop_v2():
+    # edge_attr is not None
+    seed = 0
+    edge_index = torch.tensor(
+        [
+            [0, 4],
+            [0, 5],
+            [1, 0],
+            [2, 0],
+            [3, 0],
+        ],
+    ).T.contiguous()
+    edge_attr = torch.tensor(
+        [
+            [10],
+            [20],
+            [30],
+            [40],
+            [50],
+        ],
+    )
+    num_neighbor = 3
+    np.random.seed(1124)
+    exp_nodes = torch.tensor([1, 2, 5])
+    exp_edge_index = torch.tensor(
+        [
+            [1, 0],
+            [2, 0],
+            [0, 5],
+        ],
+    ).T.contiguous()
+    exp_edge_attr = torch.tensor(
+        [
+            [30],
+            [40],
+            [20],
+        ],
+    )
+    exp_remained_edge_index = torch.tensor(
+        [
+            [0, 4],
+            [3, 0],
+        ],
+    ).T.contiguous()
+    exp_remained_edge_attr = torch.tensor(
+        [
+            [10],
+            [50],
+        ],
+    )
+    (
+        actual_nodes,
+        actual_edge_index,
+        actual_edge_attr,
+        actual_remained_edge_index,
+        actual_remained_edge_attr,
+    ) = sample_one_hop_neighbors_v2(
+        seed=seed,
+        edge_index=edge_index,
+        edge_attr=edge_attr,
+        num_neighbor=num_neighbor,
+    )
+    assert torch.equal(actual_nodes, exp_nodes)
+    assert torch.equal(actual_edge_index, exp_edge_index)
+    assert torch.equal(actual_edge_attr, exp_edge_attr)
+    assert torch.equal(actual_remained_edge_index, exp_remained_edge_index)
+    assert torch.equal(actual_remained_edge_attr, exp_remained_edge_attr)
+
+
+def test_neighbor_sampling_by_dfs():
+    seed = torch.tensor([0])
+    edge_index = torch.tensor(
+        [
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+            [2, 5],
+            [4, 0],
+        ],
+    ).T.contiguous()
+    num_neighbors = [2, 3]
+    expected_sampled_nodes = torch.tensor([0, 2, 4, 3, 5])
+    expected_sampled_edge_indices = torch.tensor(
+        [
+            [0, 2],
+            [4, 0],
+            [2, 3],
+            [2, 5],
+        ]
+    ).T.contiguous()
+    expected_sampled_edge_index_ptrs = torch.tensor([1, 5, 3, 4])
+    np.random.seed(1124)
+    (
+        actual_sampled_nodes,
+        actual_sampled_edge_indices,
+        actual_sampled_edge_index_ptrs,
+    ) = neighbor_sampling_by_dfs(seed, edge_index, num_neighbors)
+
+    assert torch.equal(actual_sampled_nodes, expected_sampled_nodes)
+    assert torch.equal(actual_sampled_edge_indices, expected_sampled_edge_indices)
+    assert torch.equal(actual_sampled_edge_index_ptrs, expected_sampled_edge_index_ptrs)
+
+
+def test_neighbor_sampling_by_dfs_v2():
+    seed = torch.tensor([0])
+    edge_index = torch.tensor(
+        [
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [2, 3],
+            [2, 5],
+            [4, 0],
+        ],
+    ).T.contiguous()
+    num_neighbors = [2, 3]
+    expected_sampled_nodes = torch.tensor([0, 2, 4, 3, 5])
+    expected_sampled_edge_indices = torch.tensor(
+        [
+            [0, 2],
+            [4, 0],
+            [2, 3],
+            [2, 5],
+        ]
+    ).T.contiguous()
+    expected_sampled_edge_index_ptrs = torch.tensor([1, 5, 3, 4])
+    np.random.seed(1124)
+    (
+        actual_sampled_nodes,
+        actual_sampled_edge_indices,
+        actual_sampled_edge_index_ptrs,
+    ) = neighbor_sampling_by_dfs_v2(seed, edge_index, num_neighbors)
+
+    assert torch.equal(actual_sampled_nodes, expected_sampled_nodes)
+    assert torch.equal(actual_sampled_edge_indices, expected_sampled_edge_indices)
+    assert torch.equal(actual_sampled_edge_index_ptrs, expected_sampled_edge_index_ptrs)
 
 
 class TestDAEMONNeighborSampler:

@@ -2,6 +2,7 @@ import math
 from collections import deque
 from typing import Callable, Optional, overload
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch_geometric.data import Data
@@ -15,6 +16,12 @@ from torch_geometric.sampler import (
 from torch_geometric.utils import mask_to_index
 
 from .cython.cython_fn import find_index as _find_index_v2
+from .cython.cython_fn import neighbor_sampling_by_dfs as _neighbor_sampling_by_dfs_v2
+from .cython.cython_fn import sample_one_hop_neighbors as _sample_one_hop_neighbors_v2
+from .utils import get_connected_edges_v2 as get_connected_edges
+
+# from .utils import get_connected_edges
+# from .utils import get_connected_edges
 from .utils import remove_edges_v2 as remove_edges
 
 # from .utils import remove_edges
@@ -90,56 +97,21 @@ class DAEMONNeighborSampler(BaseSampler):
             f"{edge_index=}, {edge_index_type=}"
         )
 
-        sampled_nodes = seed  # samplingされたノードを格納するtensor
-        sampled_edge_indices = torch.tensor([], dtype=torch.long).reshape(
-            2, 0
-        )  # samplingされたエッジを格納するtensor
-        sampled_edge_index_ptrs = torch.tensor(
-            [], dtype=torch.long
-        )  # samplingされたエッジのindexを格納するtensor
-
         # 深さ優先探索で近傍nodeをサンプリングする
-        seed_queue = deque(seed)  # samplingするseedを格納するqueue
-        layer_queue = deque([0] * seed.numel())  # seedの層を格納するqueue
-        remained_edge_index = edge_index
-        remained_edge_index_ptr = torch.arange(edge_index.size(1))
-        while seed_queue:
-            seed = seed_queue.popleft()
-            layer = layer_queue.popleft()
-            # layerがnum_neighborsの長さを超えた場合(= 指定されたhop数を超えた場合)はスキップ
-            if layer >= len(num_neighbors):
-                continue
-            # seedを起点に近傍nodeをサンプリングする
-            (
-                sampled_node,  # shape: (N,)
-                sampled_edge_index,  # shape: (2, N)
-                sampled_edge_index_ptr,  # shape: (N, 1)
-                remained_edge_index,  # shape: (2, num_edges - N)
-                remained_edge_index_ptr,  # shape: (num_edges - N, 1)
-            ) = sample_one_hop_neighbors(
-                seed=int(seed.item()),
-                edge_index=remained_edge_index,
-                num_neighbor=num_neighbors[layer],
-                edge_attr=remained_edge_index_ptr.reshape(-1, 1),
-                generator=self.rng,
-            )
-            sampled_edge_index_ptr = sampled_edge_index_ptr.squeeze(1)
-            remained_edge_index_ptr = remained_edge_index_ptr.squeeze(1)
-            # すでにsamplingされたことがあるノードは再度サンプリングしないため、除外する
-            filtered_sampled_node = torch.tensor(
-                list(filter(lambda x: x not in sampled_nodes, sampled_node))
-            )
-            # queueに追加
-            seed_queue.extend(filtered_sampled_node)
-            layer_queue.extend([layer + 1] * len(filtered_sampled_node))
-            # samplingされたノード、エッジを登録
-            sampled_nodes = torch.hstack([sampled_nodes, filtered_sampled_node])
-            sampled_edge_indices = torch.hstack(
-                [sampled_edge_indices, sampled_edge_index]
-            )
-            sampled_edge_index_ptrs = torch.hstack(
-                [sampled_edge_index_ptrs, sampled_edge_index_ptr]
-            )
+        # (
+        #     sampled_nodes,
+        #     sampled_edge_indices,
+        #     sampled_edge_index_ptrs,
+        # ) = neighbor_sampling_by_dfs(
+        #     seed=seed, edge_index=edge_index, num_neighbors=num_neighbors
+        # )
+        (
+            sampled_nodes,
+            sampled_edge_indices,
+            sampled_edge_index_ptrs,
+        ) = neighbor_sampling_by_dfs_v2(
+            seed=seed, edge_index=edge_index, num_neighbors=num_neighbors
+        )
 
         # sampled_edge_indexを0 ~ num_nodes - 1にindexを振り直す
         node_wo_isolated, sampled_edge_index = torch.unique(
@@ -154,9 +126,6 @@ class DAEMONNeighborSampler(BaseSampler):
         col = sampled_edge_index[1]
         edge = sampled_edge_index_ptrs.long()
         # src, dst_pos, dst_negのindexを取得する
-        # src_index, dst_pos_index, dst_neg_index = find_index(
-        #     node=node, src=src, dst_pos=dst_pos, dst_neg=dst_neg
-        # )
         src_index, dst_pos_index, dst_neg_index = find_index_v2(
             node=node, src=src, dst_pos=dst_pos, dst_neg=dst_neg
         )
@@ -179,6 +148,124 @@ class DAEMONNeighborSampler(BaseSampler):
                 seed_time,
             ),  # NOTE: LinkLoaderのfilter_fnで使用するための情報。この順番である必要がある
         )
+
+
+def neighbor_sampling_by_dfs(
+    seed: torch.Tensor, edge_index: Tensor, num_neighbors: list[int]
+) -> tuple[Tensor, Tensor, Tensor]:
+    """
+    深さ優先探索で近傍nodeをサンプリングする
+
+    Args:
+        seed: seed node. shape: (N, )
+        edge_index: edge index. shape: (2, num_edges)
+        num_neighbors: number of neighbors to sample
+
+    Returns:
+        sampled_nodes: sampled nodes. shape=(N,)
+        sampled_edge_indices: sampled edges. shape=(2, num_edges)
+        sampled_edge_index_ptrs: index of sampled edges. shape=(N,)
+    """
+
+    sampled_nodes = seed  # samplingされたノードを格納するtensor
+    sampled_edge_indices = torch.tensor([], dtype=torch.long).reshape(
+        2, 0
+    )  # samplingされたエッジを格納するtensor
+    sampled_edge_index_ptrs = torch.tensor(
+        [], dtype=torch.long
+    )  # samplingされたエッジのindexを格納するtensor
+
+    seed_queue = deque(seed)  # samplingするseedを格納するqueue
+    layer_queue = deque([0] * seed.numel())  # seedの層を格納するqueue
+    _remained_edge_index = edge_index
+    _remained_edge_index_ptr = torch.arange(edge_index.size(1))
+    while seed_queue:
+        seed = seed_queue.popleft()
+        layer = layer_queue.popleft()
+        # layerがnum_neighborsの長さを超えた場合(= 指定されたhop数を超えた場合)はスキップ
+        if layer >= len(num_neighbors):
+            continue
+        # seedを起点に近傍nodeをサンプリングする
+        (
+            _sampled_nodes,  # shape: (N,)
+            _sampled_edge_index,  # shape: (2, N)
+            _sampled_edge_index_ptr,  # shape: (N, 1)
+            _remained_edge_index,  # shape: (2, num_edges - N)
+            _remained_edge_index_ptr,  # shape: (num_edges - N, 1)
+        ) = sample_one_hop_neighbors_v2(
+            seed=int(seed.item()),
+            edge_index=_remained_edge_index,
+            num_neighbor=num_neighbors[layer],
+            edge_attr=_remained_edge_index_ptr.reshape(-1, 1),
+            # generator=self.rng,
+        )
+        # (
+        #     sampled_node,  # shape: (N,)
+        #     sampled_edge_index,  # shape: (2, N)
+        #     sampled_edge_index_ptr,  # shape: (N, 1)
+        #     remained_edge_index,  # shape: (2, num_edges - N)
+        #     remained_edge_index_ptr,  # shape: (num_edges - N, 1)
+        # ) = sample_one_hop_neighbors(
+        #     seed=int(seed.item()),
+        #     edge_index=remained_edge_index,
+        #     num_neighbor=num_neighbors[layer],
+        #     edge_attr=remained_edge_index_ptr.reshape(-1, 1),
+        #     generator=self.rng,
+        # )
+        if _sampled_nodes.numel() == 0:  # sampling されたnodeが存在しない場合
+            continue
+        if _remained_edge_index.numel() == 0:  # sampling されうるedgeが存在しない場合
+            break
+        _sampled_edge_index_ptr = _sampled_edge_index_ptr.squeeze(1)
+        _remained_edge_index_ptr = _remained_edge_index_ptr.squeeze(1)
+        # すでにsamplingされたことがあるノードは再度サンプリングしないため、除外する
+        filtered_sampled_node = torch.tensor(
+            list(filter(lambda x: x not in sampled_nodes, _sampled_nodes))
+        )
+        # queueに追加
+        seed_queue.extend(filtered_sampled_node)
+        layer_queue.extend([layer + 1] * len(filtered_sampled_node))
+        # samplingされたノード、エッジを登録
+        sampled_nodes = torch.hstack([sampled_nodes, filtered_sampled_node])
+        sampled_edge_indices = torch.hstack([sampled_edge_indices, _sampled_edge_index])
+        sampled_edge_index_ptrs = torch.hstack(
+            [sampled_edge_index_ptrs, _sampled_edge_index_ptr]
+        )
+    return (
+        sampled_nodes,
+        sampled_edge_indices,
+        sampled_edge_index_ptrs,
+    )
+
+
+def neighbor_sampling_by_dfs_v2(
+    seed: torch.Tensor, edge_index: Tensor, num_neighbors: list[int]
+) -> tuple[Tensor, Tensor, Tensor]:
+    """
+    深さ優先探索で近傍nodeをサンプリングする
+
+    Args:
+        seed: seed node. shape: (N, )
+        edge_index: edge index. shape: (2, num_edges)
+        num_neighbors: number of neighbors to sample
+
+    Returns:
+        sampled_nodes: sampled nodes. shape=(N,)
+        sampled_edge_indices: sampled edges. shape=(2, num_edges)
+        sampled_edge_index_ptrs: index of sampled edges. shape=(N,)
+    """
+    sampled_nodes, sampled_edge_index, sampled_edge_index_ptrs = (
+        _neighbor_sampling_by_dfs_v2(
+            seed=seed.numpy(),
+            edge_index=edge_index.numpy(),
+            num_neighbors=np.asarray(num_neighbors),
+        )
+    )
+    return (
+        torch.tensor(sampled_nodes),
+        torch.tensor(sampled_edge_index),
+        torch.tensor(sampled_edge_index_ptrs),
+    )
 
 
 def find_index(
@@ -293,9 +380,9 @@ def sample_one_hop_neighbors(
     """
     # seedを起点にedge_indexからnum_neighbor個の近傍nodeをサンプリングする
     # 1. seedがsrc or dstとなるedgeをサンプリングする
-    mask = (edge_index == seed).any(dim=0)  # shape: (num_edges, )
-    target_edge_index = edge_index[:, mask]
-    target_edge_attr = edge_attr[mask] if edge_attr is not None else None
+    target_edge_index, target_edge_attr = get_connected_edges(
+        seed=seed, edge_index=edge_index, edge_attr=edge_attr
+    )
     # 2. seedがsrcとなるedgeに限定せずedgeをサンプリングする
     # TODO: 重み付きsamplingの実装
     if num_neighbor == -1:
@@ -331,6 +418,51 @@ def sample_one_hop_neighbors(
         sampled_edge_attr,
         remained_edge_index,
         remained_edge_attr,
+    )
+
+
+def sample_one_hop_neighbors_v2(
+    seed: int,
+    edge_index: Tensor,
+    num_neighbor: int,
+    edge_attr: Optional[Tensor],
+) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    """
+    sampling one-hop neighbors
+
+    Args:
+        seed: seed node. shape: (1, )
+        edge_index: edge index. shape: (2, num_edges)
+        edge_attr: edge attributes. shape: (num_edges, num_edge_attrs)
+        remained_edge_index: remained edge index. shape: (2, num_remained_edges)
+        num_neighbor: number of neighbors to sample
+        sampled_nodes: すでにサンプリングされたノード, shape: (num_sampled_nodes, )
+        generator: random number generator
+
+    Returns:
+        sampled: sampled nodes: shape=(N,), sampled edges: shape=(2, N), sampled edge attr: shape=(N, D), remained edges: shape=(2. num_edges - N), remained edge attr: shape=(num_edges - N, D)
+    """
+    if edge_attr is None:
+        raise ValueError("edge_attr is required")
+
+    (
+        sampled_nodes,
+        sampled_edge_index,
+        sampled_edge_attr,
+        remained_edge_index,
+        remained_edge_attr,
+    ) = _sample_one_hop_neighbors_v2(
+        seed,
+        edge_index.numpy(),
+        edge_attr.numpy(),
+        num_neighbor,
+    )
+    return (
+        torch.tensor(sampled_nodes),
+        torch.tensor(sampled_edge_index),
+        torch.tensor(sampled_edge_attr),
+        torch.tensor(remained_edge_index),
+        torch.tensor(remained_edge_attr),
     )
 
 
